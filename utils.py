@@ -1,150 +1,158 @@
-from typing import Callable, Tuple
-
 import numpy as np
 import torch
-from numpy.typing import ArrayLike
-from torch import optim
-from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
 
 
-def train_model(
-    model: Callable,
-    train_set: Dataset,
-    valid_set: Dataset,
-    loss_fn: Callable,
-    batch_size: int = 32,
-    num_epochs: int = 10,
-    lr: float = 0.001,
-    optimizer_cls=optim.Adam,
-    device: str = "cpu",
-) -> Tuple[Callable, ArrayLike, ArrayLike]:
-    """Train a PyTorch model with specified hyperparameters
+def run_training_loop(
+    model,
+    train_data,
+    valid_data,
+    batch_size=32,
+    n_epochs=10,
+    lr=1e-3,
+    device="cpu",
+):
+    """
+    Run a training loop based on the input model and associated parameters
 
     Parameters:
-        model: Input model to train
-        train_set: PyTorch Dataset object with training data
-        valid_set:PyTorch Dataset object with validation data
-        loss_fn: Loss function used to calculate loss
-        batch_size: Number of data points to process in a batch
-        num_epochs: Number of epochs to train the model for
-        lr: Learning rate used with the input optimizer
-        optimizer: Optimizer used for automatic weight updates
-        device: Device to train the model on
+        model: The input model to be trained
+        train_data: The training dataset
+        valid_data: The validation dataset
+        batch_size: Number of training points to include in batch
+        n_epochs: Number of epochs to train the model for
+        lr: Learning rate used in Adam optimizer
 
-    Returns:
-        (Tuple[Callable, ArrayLike, ArrayLike]): A tuple of the trained model, the
-            training loss history, and the validation loss history
     """
+    train_loader = torch.utils.data.DataLoader(
+        train_data, batch_size=batch_size, shuffle=True
+    )
+    valid_loader = torch.utils.data.DataLoader(
+        valid_data, batch_size=batch_size, shuffle=True
+    )
 
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=True)
-
-    # Send model to device
     model.to(device)
 
-    # Set up optimizer to work with input model
-    optimizer = optimizer_cls(model.parameters(), lr=lr)
+    # Choose Adam as the optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    # Store loss metrics
-    train_loss_history = np.zeros([num_epochs, 1])
-    valid_loss_history = np.zeros([num_epochs, 1])
+    # Use the cross entropy loss function
+    loss_fn = nn.CrossEntropyLoss()
 
-    for epoch in range(num_epochs):
+    # store metrics
+    train_loss_history = np.zeros([n_epochs, 1])
+    valid_accuracy_history = np.zeros([n_epochs, 1])
+    valid_loss_history = np.zeros([n_epochs, 1])
 
-        # Put model into train mode
+    for epoch in range(n_epochs):
+
+        # Some layers, such as Dropout, behave differently during training
         model.train()
 
-        running_loss = 0
-
+        train_loss = 0
         for batch_idx, (data, target) in enumerate(train_loader):
 
-            # Send data to device
             data, target = data.to(device), target.to(device)
 
+            # Erase accumulated gradients
+            optimizer.zero_grad()
+
             # Forward pass
-            pred = model(data)
+            output = model(data)
 
             # Calculate loss
-            loss = loss_fn(pred, target)
-            running_loss += loss.item()
+            loss = loss_fn(output, target)
+            train_loss += loss.item()
 
             # Backward pass
             loss.backward()
 
-            # Step with optimizer
+            # Weight update
             optimizer.step()
 
-        train_loss_history[epoch] = running_loss / len(train_loader.dataset)
+        train_loss_history[epoch] = train_loss / len(train_loader.dataset)
 
+        # Track loss each epoch
         print(
-            f"Train Epoch {epoch + 1}: Average Loss {train_loss_history[epoch]:.4f} "
+            "Train Epoch: %d  Average loss: %.4f"
+            % (epoch + 1, train_loss_history[epoch])
         )
 
-        # Put model into evaluation mode
+        # Putting layers like Dropout into evaluation mode
         model.eval()
 
         valid_loss = 0
+        correct = 0
 
-        # Turn off autograd
+        # Turning off automatic differentiation
         with torch.no_grad():
             for data, target in valid_loader:
-
-                # Send to device
                 data, target = data.to(device), target.to(device)
+                output = model(data)
+                valid_loss += loss_fn(
+                    output, target
+                ).item()  # Sum up batch loss
+                pred = output.argmax(
+                    dim=1, keepdim=True
+                )  # Get the index of the max class score
+                correct += pred.eq(target.view_as(pred)).sum().item()
 
-                # Forward pass
-                pred = model(data)
+        valid_loss_history[epoch] = valid_loss / len(valid_loader.dataset)
+        valid_accuracy_history[epoch] = correct / len(valid_loader.dataset)
 
-                valid_loss += loss_fn(pred, target).item()
-
-            valid_loss_history[epoch] = valid_loss / len(valid_loader.dataset)
-
-            print(
-                f"Valid Epoch {epoch + 1}: Average Loss {valid_loss_history[epoch]:.4f} "
+        print(
+            "Valid set: Average loss: %.4f, Accuracy: %d/%d (%.4f)\n"
+            % (
+                valid_loss_history[epoch],
+                correct,
+                len(valid_loader.dataset),
+                100.0 * valid_accuracy_history[epoch],
             )
+        )
 
-    return model, train_loss_history, valid_loss_history
+    return model, train_loss_history, valid_loss_history, valid_accuracy_history
 
 
-def test_model(
-    model: Callable,
-    test_set: Dataset,
-    loss_fn: Callable,
-    batch_size: int = 32,
-    device: str = "cpu",
-) -> float:
-    """Evalute a PyTorch model using an input test set
+def test_performance(model, test_data, batch_size=32, device="cpu"):
+    """
+    Test model performance on test dataset
 
     Parameters:
-        model: PyTorch model to evaluate
-        test_set: Test dataset used to evaluate the input model
-        loss_fn: Loss function used to calculate loss
-        batch_size: Number of data points to process in a batch
-        device: Device to test the model on
-
-    Returns:
-        (float): The loss of the input model based on the input loss function
+        model: The model to be tested
+        test_data: The test dataset
+        batch_size: Number of training points to include in batch
     """
-    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(
+        test_data, batch_size=batch_size, shuffle=True
+    )
 
-    # Put model into evaluation mode
+    # Putting layers like Dropout into evaluation mode
     model.eval()
+    # Use the cross entropy loss function
+    loss_fn = nn.CrossEntropyLoss()
+
+    # Send model to appropriate device
+    model.to(device)
 
     test_loss = 0
+    correct = 0
 
+    # Turning off automatic differentiation
     with torch.no_grad():
         for data, target in test_loader:
-
-            # Send inputs to device
             data, target = data.to(device), target.to(device)
-
-            # Forward pass
-            pred = model(data)
-
-            test_loss += loss_fn(pred, target).item()
+            output = model(data)
+            test_loss += loss_fn(output, target).item()  # Sum up batch loss
+            pred = output.argmax(
+                dim=1, keepdim=True
+            )  # Get the index of the max class score
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
+    test_accuracy = correct / len(test_loader.dataset)
 
-    print(f"Test Loss: {test_loss:.4f}")
-
-    return test_loss
+    print(
+        "Test set: Average loss: %.4f, Accuracy: %d/%d (%.4f)"
+        % (test_loss, correct, len(test_loader.dataset), 100.0 * test_accuracy)
+    )
+    return test_loss, test_accuracy
