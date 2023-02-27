@@ -1,3 +1,11 @@
+######################################################
+##            CS182 Demo: Data Augmentations        ##
+##               Code based on CS189 HW5            ##
+## https://www.eecs189.org/static/homeworks/hw5.pdf ##
+######################################################
+
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,6 +19,8 @@ def run_training_loop(
     n_epochs=10,
     lr=1e-3,
     device="cpu",
+    model_path=None,
+    curves_path=None,
 ):
     """
     Run a training loop based on the input model and associated parameters
@@ -109,6 +119,20 @@ def run_training_loop(
                 100.0 * valid_accuracy_history[epoch],
             )
         )
+
+    # Save checkpoint of the model after epoch
+    if model_path is not None:
+        torch.save(model, model_path)
+
+    if curves_path is not None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(train_loss_history, label="train")
+        ax.plot(valid_loss_history, label="valid")
+        ax.set_xlabel("Epoch Number")
+        ax.set_ylabel("Cross-Entropy Loss")
+        plt.title("Training and Validation Loss Curves")
+        plt.legend()
+        plt.savefig(curves_path, dpi=300, bbox_inches="tight")
 
     return model, train_loss_history, valid_loss_history, valid_accuracy_history
 
