@@ -46,6 +46,7 @@ results = run_training_loop(
     valid_data=cifar10_valid,
     batch_size=128,
     n_epochs=15,
+    lr=1e-3,
     device=device,
     model_path=model_path,
     curves_path=curves_path,
