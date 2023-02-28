@@ -3,10 +3,11 @@ import torchvision
 import torchvision.transforms as transforms
 from utils import run_training_loop
 
-device = "cpu"
-model_path = "models/example_model.pt"
+# Assign variables with model-specific parameters
 model = torchvision.models.resnet18(weights=None)
+model_path = "models/example_model.pt"
 curves_path = "images/loss_example.png"
+device = "cpu"
 
 # Compose several data augmentations for the training data
 data_aug_transform = transforms.Compose(
@@ -25,13 +26,16 @@ base_transform = transforms.Compose(
 )
 
 cifar10_train = torchvision.datasets.CIFAR10(
-    root="data", train=True, download=True, transform=transforms.ToTensor()
+    root="data",
+    train=True,
+    download=True,
+    transform=transforms.ToTensor(),
 )
 
 # Break up training data into training and validation sets
 cifar10_train, cifar10_valid = torch.utils.data.random_split(
-    cifar10_train,
-    [int(len(cifar10_train) * 0.8), int(len(cifar10_train) * 0.2)],
+    dataset=cifar10_train,
+    lengths=[int(len(cifar10_train) * 0.8), int(len(cifar10_train) * 0.2)],
     generator=torch.Generator().manual_seed(42),
 )
 
