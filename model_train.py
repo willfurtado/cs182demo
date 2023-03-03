@@ -4,10 +4,17 @@ import torchvision.transforms as transforms
 from utils import run_training_loop
 
 # Assign variables with model-specific parameters
-model = torchvision.models.resnet18(weights=None)
+model = torchvision.models.resnet18(weights=None, progress=True)
 model_path = "models/example_model.pt"
 curves_path = "images/loss_example.png"
-device = "cpu"
+
+# Check for available GPUs
+if torch.backends.mps.is_available():
+    device = "mps"
+elif torch.cuda.is_available():
+    device = "gpu"
+else:
+    device = "cpu"
 
 # Compose several data augmentations for the training data
 data_aug_transform = transforms.Compose(
@@ -28,8 +35,9 @@ base_transform = transforms.Compose(
 cifar10_train = torchvision.datasets.CIFAR10(
     root="data",
     train=True,
-    download=True,
     transform=transforms.ToTensor(),
+    target_transform=None,
+    download=True,
 )
 
 # Break up training data into training and validation sets

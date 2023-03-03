@@ -1,9 +1,8 @@
 ######################################################
-##            CS182 Demo: Data Augmentations        ##
-##               Code based on CS189 HW5            ##
-## https://www.eecs189.org/static/homeworks/hw5.pdf ##
-######################################################
-
+# #            CS182 Demo: Data Augmentations        ##
+# #               Code based on CS189 HW5            ##
+# # https://www.eecs189.org/static/homeworks/hw5.pdf ##
+# #####################################################
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,10 +28,14 @@ def run_training_loop(
         model: The input model to be trained
         train_data: The training dataset
         valid_data: The validation dataset
-        batch_size: Number of training points to include in batch
-        n_epochs: Number of epochs to train the model for
-        lr: Learning rate used in Adam optimizer
-
+        batch_size: Number of training points to include in batch. Defaults to 32.
+        n_epochs: Number of epochs to train the model for. Defaults to 10.
+        lr: Learning rate used in Adam optimizer. Defaults to 1e-3.
+        device: The device the model is to be trained on. Defaults to 'cpu'.
+        model_path: The path where the model will be saved. Defaults to None and
+            no model will be saved.
+        curves_path: The path where the train and validation loss curves will be
+            saved. Defaults to None and no plots will be saved.
     """
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True
@@ -137,14 +140,20 @@ def run_training_loop(
     return model, train_loss_history, valid_loss_history, valid_accuracy_history
 
 
-def test_performance(model, test_data, batch_size=32, device="cpu"):
+def test_performance(
+    model,
+    test_data,
+    batch_size=32,
+    device="cpu",
+):
     """
     Test model performance on test dataset
 
     Parameters:
         model: The model to be tested
         test_data: The test dataset
-        batch_size: Number of training points to include in batch
+        batch_size: Number of training points to include in batch. Defaults to 32.
+        device: The device the model is to be trained on. Defaults to 'cpu'.
     """
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
@@ -180,3 +189,39 @@ def test_performance(model, test_data, batch_size=32, device="cpu"):
         % (test_loss, correct, len(test_loader.dataset), 100.0 * test_accuracy)
     )
     return test_loss, test_accuracy
+
+
+def show_data_augmentations(
+    original_im,
+    transform_f,
+    title=None,
+):
+    """
+    Displays a 1 x 4 grid of augmentations applied to the original image
+
+    Parameters:
+        original_im: Original image to apply transform to
+        transform_f: PyTorch transform to apply to image
+        title: Optional title to plot with image grid. Defaults to None, and no
+            title is provided.
+    """
+    # Randomly augment the original image four times
+    ims_augmented = [
+        transform_f(original_im.permute(2, 0, 1)).permute(1, 2, 0)
+        for _ in range(4)
+    ]
+
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+
+    for im, ax in zip(ims_augmented, axes):
+        ax.imshow(im)
+        ax.set_xticks(ticks=[])
+        ax.set_yticks(ticks=[])
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+
+    if title is not None:
+        plt.suptitle(title, y=0.95)
+
+    # Show plot
+    plt.show()
