@@ -1,8 +1,8 @@
 ######################################################
-# #            CS182 Demo: Data Augmentations        ##
-# #               Code based on CS189 HW5            ##
-# # https://www.eecs189.org/static/homeworks/hw5.pdf ##
-# #####################################################
+##            CS182 Demo: Data Augmentations        ##
+##               Code based on CS189 HW5            ##
+## https://www.eecs189.org/static/homeworks/hw5.pdf ##
+######################################################
 
 import matplotlib.pyplot as plt
 import numpy as np
